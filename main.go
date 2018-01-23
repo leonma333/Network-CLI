@@ -19,8 +19,8 @@ func main() {
   serverPortPtr := serverCommand.Int("port", DEFUALT_PORT, "Server port to open (e.g. server -port 8080)")
 
   // Forward subcommand flag pointers
-  forwardFromPortPtr := forwardCommand.Int("from", -1, "Server port to listen (required) (e.g. forward -from 8080)")
-  forwardToPortPtr := forwardCommand.Int("to", -1, "Server port to forward to (required) (e.g. forward -to 3000)")
+  forwardTargetPtr := forwardCommand.String("target", "", "Server port to listen (required) (e.g. forward -target 127.0.0.1:8080)")
+  forwardPortPtr := forwardCommand.Int("port", -1, "Server port to forward to (required) (e.g. forward -port 8080)")
 
   // Check subcommand flag pointerss
   var checkPortList portList
@@ -55,10 +55,10 @@ func main() {
       errorRoutine(err.Error())
     }
   } else if forwardCommand.Parsed() {
-  	if (*forwardFromPortPtr < 0 || *forwardToPortPtr < 0) {
-  		exitRoutine("Both from and to port number option are required (see help)");
+  	if (*forwardTargetPtr == "" || *forwardPortPtr < 0) {
+  		exitRoutine("Both target and port number options are required (see help)");
   	}
-		err := network.forwarding(*forwardFromPortPtr, *forwardToPortPtr)
+		err := network.forwarding(*forwardTargetPtr, *forwardPortPtr)
     if err != nil {
       errorRoutine(err.Error())
     }

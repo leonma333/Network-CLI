@@ -17,8 +17,8 @@ type Network interface {
   portIsAvailable(port int) (status bool, err error)
   getInternalIp() (net.IP, error)
   getExternalIp() (net.IP, error)
-  forwarding(from int, to int) error
-  forward(conn net.Conn, to int)
+  forwarding(target string, port int) error
+  forward(conn net.Conn, target string)
 }
 
 // NetworkHelper implements Network interface
@@ -131,9 +131,9 @@ func (network NetworkHelper) getExternalIp() (net.IP, error) {
 /*
  * Port forwarding
  */
-func (network NetworkHelper) forwarding(from int, to int) error {
+func (network NetworkHelper) forwarding(target string, port int) error {
   // Declare listener to the origin port
-  listener, err := net.Listen("tcp", portStringify(from))
+  listener, err := net.Listen("tcp", portStringify(port))
   if err != nil {
     return err
   }
@@ -145,16 +145,16 @@ func (network NetworkHelper) forwarding(from int, to int) error {
       return err
     }
     fmt.Printf("Accepted connection %v\n", conn)
-    go network.forward(conn, to)
+    go network.forward(conn, target)
   }
 }
 
 /*
  * Forward connection to then given port number
  */
-func (network NetworkHelper) forward(conn net.Conn, to int) {
+func (network NetworkHelper) forward(conn net.Conn, target string) {
   // Declare client to the forwarding port
-  client, err := net.Dial("tcp", portStringify(to))
+  client, err := net.Dial("tcp", target)
   if err != nil {
     panic(err)
   }
