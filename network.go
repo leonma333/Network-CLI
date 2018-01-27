@@ -11,7 +11,7 @@ import (
 
 // Network interface to deal with http server and IP
 type Network interface {
-  startHttpServer(port int) error
+  startHttpServer(port int, useFile bool) error
   getAllUnavailablePorts() portList
   getAllUnavailablePortsFromList(pl *portList) portList
   portIsAvailable(port int) (status bool, err error)
@@ -30,10 +30,15 @@ const MAX_PORT = 65535
 /*
  * Start a local http server with the port number provided
  */
-func (network NetworkHelper) startHttpServer(port int) error {
-  http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprintf(w, "You're now on port %v [%s]", port, r.URL.Path[0:])
-  })
+func (network NetworkHelper) startHttpServer(port int, useFile bool) error {
+  if useFile {
+    http.Handle("/", http.FileServer(http.Dir("./")))
+  } else {
+    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+      fmt.Fprintf(w, "You're now on port %v [%s]", port, r.URL.Path[0:])
+    })
+  }
+
   //go func() {
     if err := http.ListenAndServe(portStringify(port), nil); err != nil {
       return err

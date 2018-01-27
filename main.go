@@ -17,6 +17,7 @@ func main() {
 
   // Server subcommand flag pointers
   serverPortPtr := serverCommand.Int("port", DEFUALT_PORT, "Server port to open (e.g. server -port 8080)")
+  serverFilePtr := serverCommand.Bool("file", false, "Use file on server (e.g. server -file)")
 
   // Forward subcommand flag pointers
   forwardTargetPtr := forwardCommand.String("target", "", "Server port to listen (required) (e.g. forward -target 127.0.0.1:8080)")
@@ -25,11 +26,11 @@ func main() {
   // Check subcommand flag pointerss
   var checkPortList portList
   checkCommand.Var(&checkPortList, "portList", "A comma seperated list of ports to be checked (e.g. check -portList 80,8080,4000)")
-  checkIpPtr := checkCommand.Bool("ip", false, "Check your internal and external IP addresses (e.g. check -ip true)")
+  checkIpPtr := checkCommand.Bool("ip", false, "Check your internal and external IP addresses (e.g. check -ip)")
 
   // Verify that a subcommand has been provided
   if len(os.Args) < 2 {
-    exitRoutine("'server' or 'forward' or 'check' subcommand is required")
+    exitRoutine("'server' or 'forward' or 'check' subcommand is required\nUse 'help' subcommand to see more details")
   }
 
   // Switch on the subcommand then parse the flags
@@ -50,7 +51,7 @@ func main() {
 
   // Check which subcommand should be ran
   if serverCommand.Parsed() {
-  	err := network.startHttpServer(*serverPortPtr)
+  	err := network.startHttpServer(*serverPortPtr, *serverFilePtr)
     if err != nil {
       errorRoutine(err.Error())
     }
