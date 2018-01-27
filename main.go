@@ -36,14 +36,14 @@ func main() {
   // Switch on the subcommand then parse the flags
   switch os.Args[1] {
   case "server":
-		serverCommand.Parse(os.Args[2:])
-	case "forward":
-		forwardCommand.Parse(os.Args[2:])
+    serverCommand.Parse(os.Args[2:])
+  case "forward":
+    forwardCommand.Parse(os.Args[2:])
   case "check":
-  	checkCommand.Parse(os.Args[2:])
+    checkCommand.Parse(os.Args[2:])
   case "help":
-  	serverCommand.PrintDefaults()
-  	forwardCommand.PrintDefaults()
+    serverCommand.PrintDefaults()
+    forwardCommand.PrintDefaults()
     checkCommand.PrintDefaults()
   default:
     exitRoutine("No subcommand found")
@@ -51,21 +51,21 @@ func main() {
 
   // Check which subcommand should be ran
   if serverCommand.Parsed() {
-  	err := network.startHttpServer(*serverPortPtr, *serverFilePtr)
+    err := network.startHttpServer(*serverPortPtr, *serverFilePtr)
     if err != nil {
       errorRoutine(err.Error())
     }
   } else if forwardCommand.Parsed() {
-  	if (*forwardTargetPtr == "" || *forwardPortPtr < 0) {
-  		exitRoutine("Both target and port number options are required (see help)");
-  	}
-		err := network.forwarding(*forwardTargetPtr, *forwardPortPtr)
+    if (*forwardTargetPtr == "" || *forwardPortPtr < 0) {
+      exitRoutine("Both target and port number options are required (see help)");
+    }
+    err := network.forwarding(*forwardTargetPtr, *forwardPortPtr)
     if err != nil {
       errorRoutine(err.Error())
     }
-	} else if checkCommand.Parsed() {
+  } else if checkCommand.Parsed() {
     if !*checkIpPtr {
-    	if checkPortList == nil {
+      if checkPortList == nil {
         fmt.Printf("Unavailable ports in this machine are:\n%v\n", network.getAllUnavailablePorts())
       } else {
         fmt.Printf("The only unavailable ports among %v are:\n%v\n", checkPortList, network.getAllUnavailablePortsFromList(&checkPortList))
@@ -88,11 +88,11 @@ func main() {
  * Exit the main program
  */
 func exitRoutine(message string) {
-	if message != "" {
-		fmt.Println(message)
-	} else {
-		flag.PrintDefaults()
-	}
+  if message != "" {
+    fmt.Println(message)
+  } else {
+    flag.PrintDefaults()
+  }
   os.Exit(1)
 }
 
