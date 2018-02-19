@@ -29,6 +29,7 @@ type Network interface {
 // NetworkHelper implements Network interface
 type networkHandler struct {
 	httpClient httpServer
+	netClient  localNet
 }
 
 /*
@@ -37,6 +38,7 @@ type networkHandler struct {
 func NewNetwork() Network {
 	return &networkHandler{
 		httpClient: &httpServerReal{},
+		netClient:  &localNetReal{},
 	}
 }
 
@@ -91,11 +93,13 @@ func (n *networkHandler) AllUnavailablePortsFromList(pl *PortList) PortList {
  */
 func (n *networkHandler) PortIsAvailable(port int) (status bool, err error) {
 	host := ":" + strconv.Itoa(port)
-	server, err := net.Listen("tcp", host)
+	server, err := n.netClient.Listen("tcp", host)
 	if err != nil {
 		return false, err
 	}
-	server.Close()
+	if server != nil {
+		server.Close()
+	}
 	return true, nil
 }
 

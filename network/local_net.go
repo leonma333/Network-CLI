@@ -2,8 +2,12 @@ package network
 
 import (
 	"errors"
+	"fmt"
 	"net"
+	"strconv"
 )
+
+var mockNotAvailblePorts = PortList([]int{1000, 2000, 3000})
 
 // localNet interface to define some local network functions
 type localNet interface {
@@ -33,5 +37,13 @@ func (n *localNetMock) Listen(protocol, address string) (net.Listener, error) {
 	if n.err {
 		return nil, errors.New("net.Listen error")
 	}
+
+	// if address is not available, return error
+	for _, port := range mockNotAvailblePorts {
+		if address == ":"+strconv.Itoa(port) {
+			return nil, errors.New(fmt.Sprintf("net.Listen error: %s not available", address))
+		}
+	}
+
 	return nil, nil
 }
