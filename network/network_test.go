@@ -26,9 +26,8 @@ func setupError() {
 }
 
 func TestNewNetwork(t *testing.T) {
-	setupMock()
 	if _, ok := fakeNetwork.(Network); !ok {
-		t.Errorf("NewNetwork() does not implement Network interface")
+		t.Error("NewNetwork() does not implement Network interface")
 	}
 }
 
@@ -42,7 +41,7 @@ func TestStartHttpServerWithFile(t *testing.T) {
 	setupError()
 	err = fakeNetwork.StartHttpServer(8080, true)
 	if err == nil {
-		t.Errorf("StartHttpServer() not handling error properly")
+		t.Error("StartHttpServer() not handling error properly")
 	}
 }
 
@@ -56,7 +55,7 @@ func TestStartHttpServerWithoutFile(t *testing.T) {
 	setupError()
 	err = fakeNetwork.StartHttpServer(8080, false)
 	if err == nil {
-		t.Errorf("StartHttpServer() not handling error properly")
+		t.Error("StartHttpServer() not handling error properly")
 	}
 }
 
@@ -64,7 +63,7 @@ func TestAllUnavailablePorts(t *testing.T) {
 	setupMock()
 	list := fakeNetwork.AllUnavailablePorts()
 	if !reflect.DeepEqual(list, mockNotAvailblePorts) {
-		t.Errorf("AllUnavailablePorts() returns wrong value")
+		t.Error("AllUnavailablePorts() returns wrong value")
 	}
 }
 
@@ -74,7 +73,7 @@ func TestAllUnavailablePortsFromList(t *testing.T) {
 	testPorts = append(testPorts, 8080)
 	list := fakeNetwork.AllUnavailablePortsFromList(&testPorts)
 	if !reflect.DeepEqual(list, mockNotAvailblePorts) {
-		t.Errorf("AllUnavailablePortsFromList() returns wrong value")
+		t.Error("AllUnavailablePortsFromList() returns wrong value")
 	}
 }
 
@@ -87,12 +86,19 @@ func TestPortIsAvailable(t *testing.T) {
 
 	status, _ = fakeNetwork.PortIsAvailable(mockNotAvailblePorts[0])
 	if status {
-		t.Errorf("PortIsAvailable gives true for unavailable port")
+		t.Error("PortIsAvailable gives true for unavailable port")
 	}
 
 	setupError()
 	_, err = fakeNetwork.PortIsAvailable(8080)
 	if err == nil {
-		t.Errorf("PortIsAvailable() not handling error properly")
+		t.Error("PortIsAvailable() not handling error properly")
+	}
+}
+
+func TestInternalIP(t *testing.T) {
+	_, err := fakeNetwork.InternalIP()
+	if err != nil {
+		t.Errorf("InternalIP failed - %s", err.Error())
 	}
 }

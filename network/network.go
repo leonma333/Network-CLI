@@ -23,7 +23,6 @@ type Network interface {
 	InternalIP() (net.IP, error)
 	ExternalIP() (net.IP, error)
 	Forwarding(target string, port int) error
-	forward(conn net.Conn, target string)
 }
 
 // NetworkHelper implements Network interface
@@ -97,9 +96,7 @@ func (n *networkHandler) PortIsAvailable(port int) (status bool, err error) {
 	if err != nil {
 		return false, err
 	}
-	if server != nil {
-		server.Close()
-	}
+	server.Close()
 	return true, nil
 }
 
