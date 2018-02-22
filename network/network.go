@@ -125,7 +125,7 @@ func (n *networkHandler) InternalIP() (net.IP, error) {
  */
 func (n *networkHandler) ExternalIP() (net.IP, error) {
 	// Get request on myexternalip.com to retrieve external IP address for the machine
-	resp, err := http.Get("http://myexternalip.com/raw")
+	resp, err := n.httpClient.Get("http://myexternalip.com/raw")
 
 	if err != nil {
 		return nil, err

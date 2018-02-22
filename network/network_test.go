@@ -1,6 +1,7 @@
 package network
 
 import (
+	"bytes"
 	"reflect"
 	"testing"
 )
@@ -13,15 +14,21 @@ var (
  * Setup mock handlers
  */
 func setupMock() {
-	fakeNetwork.(*networkHandler).httpClient = &httpServerMock{}
+	fakeNetwork.(*networkHandler).httpClient = &httpServerMock{
+		body: readerMock{bytes.NewBufferString("69.89.31.226\n")},
+	}
 	fakeNetwork.(*networkHandler).netClient = &localNetMock{}
 }
 
 /*
  * Turn error flags on for mock handlers
  */
-func setupError() {
-	fakeNetwork.(*networkHandler).httpClient.(*httpServerMock).err = true
+func setupError(wrongOutput bool) {
+	if wrongOutput {
+		fakeNetwork.(*networkHandler).httpClient.(*httpServerMock).body = readerMock{bytes.NewBufferString("invalid_ip\n")}
+	} else {
+		fakeNetwork.(*networkHandler).httpClient.(*httpServerMock).err = true
+	}
 	fakeNetwork.(*networkHandler).netClient.(*localNetMock).err = true
 }
 
@@ -38,7 +45,7 @@ func TestStartHttpServerWithFile(t *testing.T) {
 		t.Errorf("StartHttpServer() failed - %s", err.Error())
 	}
 
-	setupError()
+	setupError(false)
 	err = fakeNetwork.StartHttpServer(8080, true)
 	if err == nil {
 		t.Error("StartHttpServer() not handling error properly")
@@ -52,7 +59,7 @@ func TestStartHttpServerWithoutFile(t *testing.T) {
 		t.Errorf("StartHttpServer() failed - %s", err.Error())
 	}
 
-	setupError()
+	setupError(false)
 	err = fakeNetwork.StartHttpServer(8080, false)
 	if err == nil {
 		t.Error("StartHttpServer() not handling error properly")
@@ -89,7 +96,7 @@ func TestPortIsAvailable(t *testing.T) {
 		t.Error("PortIsAvailable gives true for unavailable port")
 	}
 
-	setupError()
+	setupError(false)
 	_, err = fakeNetwork.PortIsAvailable(8080)
 	if err == nil {
 		t.Error("PortIsAvailable() not handling error properly")
@@ -99,6 +106,35 @@ func TestPortIsAvailable(t *testing.T) {
 func TestInternalIP(t *testing.T) {
 	_, err := fakeNetwork.InternalIP()
 	if err != nil {
-		t.Errorf("InternalIP failed - %s", err.Error())
+		t.Errorf("InternalIP() failed - %s", err.Error())
+	}
+}
+
+func TestExternalIPWithValidData(t *testing.T) {
+	setupMock()
+	ip, err := fakeNetwork.ExternalIP()
+	if err != nil {
+		t.Errorf("ExternalIP() failed - %s", err.Error())
+	}
+	if ip == nil {
+		t.Error("ExternalIP() failed to return IP with valid IP address")
+	}
+}
+
+func TestExternalIPWithInvalidData(t *testing.T) {
+	setupMock()
+	setupError(true)
+	ip, _ := fakeNetwork.ExternalIP()
+	if ip != nil {
+		t.Error("ExternalIP() not handling invalid IP properly")
+	}
+}
+
+func TestExternalIPWithErrorResponse(t *testing.T) {
+	setupMock()
+	setupError(false)
+	_, err := fakeNetwork.ExternalIP()
+	if err == nil {
+		t.Error("ExternalIP() not handling error response properly")
 	}
 }

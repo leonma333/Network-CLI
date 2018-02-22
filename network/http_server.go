@@ -2,6 +2,7 @@ package network
 
 import (
 	"errors"
+	"io"
 	"net/http"
 )
 
@@ -10,6 +11,7 @@ type httpServer interface {
 	ListenAndServe(addr string, handler http.Handler) error
 	Handle(pattern string, handler http.Handler)
 	HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request))
+	Get(url string) (resp *http.Response, err error)
 }
 
 // httpServerReal implements httpServer with real http calls
@@ -17,7 +19,8 @@ type httpServerReal struct{}
 
 // httpServerMock implements httpServer with mock http calls
 type httpServerMock struct {
-	err bool
+	err  bool
+	body io.ReadCloser
 }
 
 /*
@@ -42,6 +45,13 @@ func (h *httpServerReal) HandleFunc(pattern string, handler func(http.ResponseWr
 }
 
 /*
+ * Real http.Get from httpServerReal (httpServer)
+ */
+func (h *httpServerReal) Get(url string) (resp *http.Response, err error) {
+	return http.Get(url)
+}
+
+/*
  * Mock http.ListenAndServe from httpServerMock (httpServer)
  */
 func (h *httpServerMock) ListenAndServe(addr string, handler http.Handler) error {
@@ -62,4 +72,24 @@ func (h *httpServerMock) Handle(pattern string, handler http.Handler) {
  * Mock http.HandleFunc from httpServerMock (httpServer)
  */
 func (h *httpServerMock) HandleFunc(pattern string, handler func(http.ResponseWriter, *http.Request)) {
+}
+
+// Mock http.Get from httpServerMock (httpServer)
+func (h *httpServerMock) Get(url string) (resp *http.Response, err error) {
+	if h.err {
+		return nil, errors.New("http.Get error")
+	}
+	return &http.Response{
+		Body: h.body,
+	}, nil
+}
+
+// readerMock implements ReadCloser with mock Reader
+type readerMock struct {
+	io.Reader
+}
+
+// Mock Close from readerMock (ReadCloser)
+func (readerMock) Close() error {
+	return nil
 }
