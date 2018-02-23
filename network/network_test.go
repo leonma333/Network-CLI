@@ -138,3 +138,11 @@ func TestExternalIPWithErrorResponse(t *testing.T) {
 		t.Error("ExternalIP() not handling error response properly")
 	}
 }
+
+func TestForwardingWithInvalidData(t *testing.T) {
+	setupMock()
+	err := fakeNetwork.Forwarding("127.0.0.1:8080", mockNotAvailblePorts[0])
+	if err == nil {
+		t.Error("Forwarding() not handling error response properly")
+	}
+}

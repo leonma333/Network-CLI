@@ -152,7 +152,7 @@ func (n *networkHandler) ExternalIP() (net.IP, error) {
  */
 func (n *networkHandler) Forwarding(target string, port int) error {
 	// Declare listener to the origin port
-	listener, err := net.Listen("tcp", portStringify(port))
+	listener, err := n.netClient.Listen("tcp", portStringify(port))
 	if err != nil {
 		return err
 	}
