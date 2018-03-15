@@ -9,7 +9,7 @@ import (
 
 func main() {
 	// Crate network variable
-	networker := network.NewNetwork()
+	networker := network.NewNetwork(nil, nil)
 
 	// Subcommands initialization
 	serverCommand := flag.NewFlagSet("server", flag.ExitOnError)
