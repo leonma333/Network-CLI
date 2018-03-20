@@ -1,148 +1,216 @@
-package network
+package network_test
 
 import (
 	"bytes"
-	"reflect"
+	"errors"
+	"io"
+	"net"
+	"net/http"
 	"testing"
+	"time"
+
+	"."
+	"./mocks"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
-var (
-	fakeNetwork = NewNetwork()
-)
-
-/*
- * Setup mock handlers
- */
-func setupMock() {
-	fakeNetwork.(*networkHandler).httpClient = &httpServerMock{
-		body: readerMock{bytes.NewBufferString("69.89.31.226\n")},
-	}
-	fakeNetwork.(*networkHandler).netClient = &localNetMock{}
+type nopCloser struct {
+	io.Reader
 }
 
-/*
- * Turn error flags on for mock handlers
- */
-func setupError(wrongOutput bool) {
-	if wrongOutput {
-		fakeNetwork.(*networkHandler).httpClient.(*httpServerMock).body = readerMock{bytes.NewBufferString("invalid_ip\n")}
-	} else {
-		fakeNetwork.(*networkHandler).httpClient.(*httpServerMock).err = true
-	}
-	fakeNetwork.(*networkHandler).netClient.(*localNetMock).err = true
+func (nopCloser) Close() error { return nil }
+
+type addr interface {
+	Network() string
+	String() string
 }
 
 func TestNewNetwork(t *testing.T) {
-	if _, ok := fakeNetwork.(Network); !ok {
-		t.Error("NewNetwork() does not implement Network interface")
-	}
+	networker := network.NewNetwork(nil, nil)
+	assert.Implements(t, (*network.Network)(nil), networker, "NewNetwork() does not implement Network interface")
 }
 
-func TestStartHttpServerWithFile(t *testing.T) {
-	setupMock()
-	err := fakeNetwork.StartHttpServer(8080, true)
-	if err != nil {
-		t.Errorf("StartHttpServer() failed - %s", err.Error())
-	}
+func TestStartHttpServerWithFileValidCase(t *testing.T) {
+	httpServer := new(mocks.HttpServer)
+	httpServer.On("Handle", mock.AnythingOfType("string"), mock.AnythingOfType("*http.fileHandler")).Return()
+	httpServer.On("ListenAndServe", mock.AnythingOfType("string"), mock.Anything).Return(nil)
+	networker := network.NewNetwork(httpServer, nil)
 
-	setupError(false)
-	err = fakeNetwork.StartHttpServer(8080, true)
-	if err == nil {
-		t.Error("StartHttpServer() not handling error properly")
-	}
+	err := networker.StartHttpServer(8080, true)
+	assert.NoError(t, err)
+}
+
+func TestStartHttpServerWithFileInvalidCase(t *testing.T) {
+	httpServer := new(mocks.HttpServer)
+	httpServer.On("Handle", mock.AnythingOfType("string"), mock.AnythingOfType("*http.fileHandler")).Return()
+	httpServer.On("ListenAndServe", mock.AnythingOfType("string"), mock.Anything).Return(errors.New("ListenAndServe Failed"))
+	networker := network.NewNetwork(httpServer, nil)
+
+	err := networker.StartHttpServer(8080, true)
+	assert.Error(t, err, "StartHttpServer() not handling error properly")
 }
 
 func TestStartHttpServerWithoutFile(t *testing.T) {
-	setupMock()
-	err := fakeNetwork.StartHttpServer(8080, false)
-	if err != nil {
-		t.Errorf("StartHttpServer() failed - %s", err.Error())
-	}
+	httpServer := new(mocks.HttpServer)
+	httpServer.On("HandleFunc", mock.AnythingOfType("string"), mock.Anything).Return()
+	httpServer.On("ListenAndServe", mock.AnythingOfType("string"), mock.Anything).Return(nil)
+	networker := network.NewNetwork(httpServer, nil)
 
-	setupError(false)
-	err = fakeNetwork.StartHttpServer(8080, false)
-	if err == nil {
-		t.Error("StartHttpServer() not handling error properly")
-	}
+	err := networker.StartHttpServer(8080, false)
+	assert.NoError(t, err)
 }
 
-func TestAllUnavailablePorts(t *testing.T) {
-	setupMock()
-	list := fakeNetwork.AllUnavailablePorts()
-	if !reflect.DeepEqual(list, mockNotAvailblePorts) {
-		t.Error("AllUnavailablePorts() returns wrong value")
-	}
+func TestAllUnavailablePortsWithEveryPortAvailable(t *testing.T) {
+	localNet := new(mocks.LocalNet)
+	localNetListener := new(mocks.LocalNetListener)
+	localNetListener.On("Close").Return(nil)
+	localNet.On("Listen", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(localNetListener, nil)
+	networker := network.NewNetwork(nil, localNet)
+
+	list := networker.AllUnavailablePorts()
+	assert.Empty(t, list)
 }
 
 func TestAllUnavailablePortsFromList(t *testing.T) {
-	setupMock()
-	testPorts := mockNotAvailblePorts
-	testPorts = append(testPorts, 8080)
-	list := fakeNetwork.AllUnavailablePortsFromList(&testPorts)
-	if !reflect.DeepEqual(list, mockNotAvailblePorts) {
-		t.Error("AllUnavailablePortsFromList() returns wrong value")
-	}
+	localNet := new(mocks.LocalNet)
+	localNetListener := new(mocks.LocalNetListener)
+	localNetListener.On("Close").Return(nil)
+	localNet.On("Listen", mock.AnythingOfType("string"), ":3000").Return(nil, errors.New("Listen Failed"))
+	localNet.On("Listen", mock.AnythingOfType("string"), ":4000").Return(nil, errors.New("Listen Failed"))
+	localNet.On("Listen", mock.AnythingOfType("string"), ":5000").Return(nil, errors.New("Listen Failed"))
+	localNet.On("Listen", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(localNetListener, nil)
+	networker := network.NewNetwork(nil, localNet)
+
+	list := networker.AllUnavailablePorts()
+	assert.Equal(t, network.PortList([]int{3000, 4000, 5000}), list)
 }
 
-func TestPortIsAvailable(t *testing.T) {
-	setupMock()
-	status, err := fakeNetwork.PortIsAvailable(8080)
-	if !status || err != nil {
-		t.Errorf("PortIsAvailable() failed - %s", err.Error())
-	}
+func TestPortIsAvailableWithoutError(t *testing.T) {
+	localNet := new(mocks.LocalNet)
+	localNetListener := new(mocks.LocalNetListener)
+	localNetListener.On("Close").Return(nil)
+	localNet.On("Listen", mock.AnythingOfType("string"), ":8080").Return(localNetListener, nil)
+	networker := network.NewNetwork(nil, localNet)
 
-	status, _ = fakeNetwork.PortIsAvailable(mockNotAvailblePorts[0])
-	if status {
-		t.Error("PortIsAvailable gives true for unavailable port")
-	}
-
-	setupError(false)
-	_, err = fakeNetwork.PortIsAvailable(8080)
-	if err == nil {
-		t.Error("PortIsAvailable() not handling error properly")
-	}
+	status, err := networker.PortIsAvailable(8080)
+	assert.NoError(t, err)
+	assert.True(t, status)
 }
 
-func TestInternalIP(t *testing.T) {
-	_, err := fakeNetwork.InternalIP()
-	if err != nil {
-		t.Errorf("InternalIP() failed - %s", err.Error())
-	}
+func TestPortIsAvailableWithError(t *testing.T) {
+	localNet := new(mocks.LocalNet)
+	localNet.On("Listen", mock.AnythingOfType("string"), ":8080").Return(nil, errors.New("Listen Failed"))
+	networker := network.NewNetwork(nil, localNet)
+
+	status, err := networker.PortIsAvailable(8080)
+	assert.Error(t, err)
+	assert.False(t, status)
+}
+
+func TestInternalIPWithoutError(t *testing.T) {
+	localNet := new(mocks.LocalNet)
+	localNetConn := new(mocks.LocalNetConn)
+	localNetConn.On("Close").Return(nil)
+	localNetConn.On("LocalAddr").Return(&net.UDPAddr{})
+	localNet.On("Dial", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(localNetConn, nil)
+	networker := network.NewNetwork(nil, localNet)
+	_, err := networker.InternalIP()
+	assert.NoError(t, err)
+}
+
+func TestInternalIPWithError(t *testing.T) {
+	localNet := new(mocks.LocalNet)
+	localNet.On("Dial", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, errors.New("Dial Failed"))
+	networker := network.NewNetwork(nil, localNet)
+	_, err := networker.InternalIP()
+	assert.Error(t, err)
 }
 
 func TestExternalIPWithValidData(t *testing.T) {
-	setupMock()
-	ip, err := fakeNetwork.ExternalIP()
-	if err != nil {
-		t.Errorf("ExternalIP() failed - %s", err.Error())
-	}
-	if ip == nil {
-		t.Error("ExternalIP() failed to return IP with valid IP address")
-	}
+	httpServer := new(mocks.HttpServer)
+	httpServer.On("Get", mock.AnythingOfType("string")).Return(&http.Response{
+		Body: nopCloser{bytes.NewBufferString("1.1.1.1")},
+	}, nil)
+	networker := network.NewNetwork(httpServer, nil)
+
+	ip, err := networker.ExternalIP()
+	assert.NoError(t, err)
+	assert.NotNil(t, ip, "ExternalIP() failed to return IP with valid IP address")
 }
 
 func TestExternalIPWithInvalidData(t *testing.T) {
-	setupMock()
-	setupError(true)
-	ip, _ := fakeNetwork.ExternalIP()
-	if ip != nil {
-		t.Error("ExternalIP() not handling invalid IP properly")
-	}
+	httpServer := new(mocks.HttpServer)
+	httpServer.On("Get", mock.AnythingOfType("string")).Return(&http.Response{
+		Body: nopCloser{bytes.NewBufferString("invalid ip")},
+	}, nil)
+	networker := network.NewNetwork(httpServer, nil)
+
+	ip, _ := networker.ExternalIP()
+	assert.Nil(t, ip)
 }
 
 func TestExternalIPWithErrorResponse(t *testing.T) {
-	setupMock()
-	setupError(false)
-	_, err := fakeNetwork.ExternalIP()
-	if err == nil {
-		t.Error("ExternalIP() not handling error response properly")
-	}
+	httpServer := new(mocks.HttpServer)
+	httpServer.On("Get", mock.AnythingOfType("string")).Return(nil, errors.New("Connection Failed"))
+	networker := network.NewNetwork(httpServer, nil)
+
+	ip, err := networker.ExternalIP()
+	assert.Error(t, err, "ExternalIP() not handling error response from server properly")
+	assert.Nil(t, ip)
 }
 
-func TestForwardingWithInvalidData(t *testing.T) {
-	setupMock()
-	err := fakeNetwork.Forwarding("127.0.0.1:8080", mockNotAvailblePorts[0])
-	if err == nil {
-		t.Error("Forwarding() not handling error response properly")
+func TestForwardingWithListenTCPFailed(t *testing.T) {
+	localNet := new(mocks.LocalNet)
+	localNet.On("Listen", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, errors.New("Listen Failed"))
+	networker := network.NewNetwork(nil, localNet)
+
+	err := networker.Forwarding("127.0.0.1:3000", 8080)
+	assert.Error(t, err)
+}
+
+func TestForwardingWithListenerAcceptFailed(t *testing.T) {
+	localNet := new(mocks.LocalNet)
+	localNetListener := new(mocks.LocalNetListener)
+	localNetListener.On("Accept").Return(nil, errors.New("Accept Failed"))
+	localNet.On("Listen", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(localNetListener, nil)
+	networker := network.NewNetwork(nil, localNet)
+
+	err := networker.Forwarding("127.0.0.1:3000", 8080)
+	assert.Error(t, err)
+}
+
+func TestForwardingWithDialFailed(t *testing.T) {
+	localNet := new(mocks.LocalNet)
+	localNetListener := new(mocks.LocalNetListener)
+	localNetListener.On("Accept").Return(&net.TCPConn{}, nil)
+	localNet.On("Listen", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(localNetListener, nil)
+	localNet.On("Dial", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(nil, errors.New("Dial Failed"))
+	networker := network.NewNetwork(nil, localNet)
+
+	err := networker.Forwarding("127.0.0.1:3000", 8080)
+	assert.Error(t, err)
+}
+
+func TestForwardingWithNoError(t *testing.T) {
+	localNet := new(mocks.LocalNet)
+	localNetListener := new(mocks.LocalNetListener)
+	localNetConn := new(mocks.LocalNetConn)
+	localNetConn.On("Close").Return(nil)
+	localNetListener.On("Accept").Return(&net.TCPConn{}, nil)
+	localNet.On("Listen", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(localNetListener, nil)
+	localNet.On("Dial", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(localNetConn, nil)
+	networker := network.NewNetwork(nil, localNet)
+
+	errChan := make(chan error)
+	go func() {
+		errChan <- networker.Forwarding("127.0.0.1:3000", 8080)
+	}()
+	select {
+	case err := <-errChan:
+		assert.NoError(t, err)
+	case <-time.After(1 * time.Second):
+		return
 	}
 }

@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 const (
@@ -27,17 +28,24 @@ type Network interface {
 
 // NetworkHelper implements Network interface
 type networkHandler struct {
-	httpClient httpServer
-	netClient  localNet
+	httpClient HttpServer
+	netClient  LocalNet
 }
 
 /*
  * Return a new instance of Network
  */
-func NewNetwork() Network {
+func NewNetwork(httpClient HttpServer, netClient LocalNet) Network {
+	if httpClient == nil {
+		httpClient = &httpServer{}
+	}
+	if netClient == nil {
+		netClient = &localNet{}
+	}
+
 	return &networkHandler{
-		httpClient: &httpServerReal{},
-		netClient:  &localNetReal{},
+		httpClient: httpClient,
+		netClient:  netClient,
 	}
 }
 
@@ -105,7 +113,7 @@ func (n *networkHandler) PortIsAvailable(port int) (status bool, err error) {
  */
 func (n *networkHandler) InternalIP() (net.IP, error) {
 	// Dial to connect to local server
-	conn, err := net.Dial("udp", "8.8.8.8:80")
+	conn, err := n.netClient.Dial("udp", "8.8.8.8:80")
 
 	if err != nil {
 		return nil, err
@@ -144,7 +152,7 @@ func (n *networkHandler) ExternalIP() (net.IP, error) {
 	ipStr := string(body)
 
 	// Convert body byte array to string and return it
-	return net.ParseIP(ipStr[:len(ipStr)-1]), nil
+	return net.ParseIP(strings.TrimSuffix(ipStr, "\n")), nil
 }
 
 /*
@@ -157,28 +165,32 @@ func (n *networkHandler) Forwarding(target string, port int) error {
 		return err
 	}
 
+	errChan := make(chan bool)
 	for {
-		// Start connection to listener
-		conn, err := listener.Accept()
-		if err != nil {
-			return err
+		select {
+		case <-errChan:
+			return fmt.Errorf("TCP connection failed")
+		default:
+			// Start connection to listener
+			conn, err := listener.Accept()
+			if err != nil {
+				return err
+			}
+			go n.forward(conn, target, errChan)
 		}
-		fmt.Printf("Accepted connection %v\n", conn)
-		go n.forward(conn, target)
 	}
 }
 
 /*
  * Forward connection to then given port number
  */
-func (n *networkHandler) forward(conn net.Conn, target string) {
+func (n *networkHandler) forward(conn LocalNetConn, target string, c chan bool) {
 	// Declare client to the forwarding port
-	client, err := net.Dial("tcp", target)
+	client, err := n.netClient.Dial("tcp", target)
 	if err != nil {
-		panic(err)
+		c <- true
+		return
 	}
-
-	fmt.Printf("Connected to localhost %v\n", conn)
 
 	// Copy IO
 	go func() {
