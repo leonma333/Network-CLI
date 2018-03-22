@@ -21,10 +21,12 @@ func (pl *PortList) String() string {
  */
 func (pl *PortList) Set(value string) error {
 	convertStringArrayToPortlist := func(strArr []string) PortList {
-		var list PortList
+		list := PortList{}
 		for _, str := range strArr {
-			port, _ := strconv.Atoi(str)
-			list = append(list, port)
+			port, err := strconv.Atoi(str)
+			if err == nil {
+				list = append(list, port)
+			}
 		}
 		return list
 	}

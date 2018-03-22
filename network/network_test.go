@@ -84,7 +84,7 @@ func TestAllUnavailablePortsFromList(t *testing.T) {
 	networker := network.NewNetwork(nil, localNet)
 
 	list := networker.AllUnavailablePorts()
-	assert.Equal(t, network.PortList([]int{3000, 4000, 5000}), list)
+	assert.Equal(t, network.PortList{3000, 4000, 5000}, list)
 }
 
 func TestPortIsAvailableWithoutError(t *testing.T) {
