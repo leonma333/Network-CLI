@@ -73,7 +73,7 @@ func TestAllUnavailablePortsWithEveryPortAvailable(t *testing.T) {
 	assert.Empty(t, list)
 }
 
-func TestAllUnavailablePortsFromList(t *testing.T) {
+func TestAllUnavailablePortsWithSomePortsUnavailable(t *testing.T) {
 	localNet := new(mocks.LocalNet)
 	localNetListener := new(mocks.LocalNetListener)
 	localNetListener.On("Close").Return(nil)
@@ -85,6 +85,41 @@ func TestAllUnavailablePortsFromList(t *testing.T) {
 
 	list := networker.AllUnavailablePorts()
 	assert.Equal(t, network.PortList{3000, 4000, 5000}, list)
+}
+
+func TestAllUnavailablePortsFromListWithEmptyInput(t *testing.T) {
+	localNet := new(mocks.LocalNet)
+	localNetListener := new(mocks.LocalNetListener)
+	localNetListener.On("Close").Return(nil)
+	localNet.On("Listen", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(localNetListener, nil)
+	networker := network.NewNetwork(nil, localNet)
+
+	list := networker.AllUnavailablePortsFromList(&network.PortList{})
+	assert.Empty(t, list)
+}
+
+func TestAllUnavailablePortsFromListWithEveryPortsAvailable(t *testing.T) {
+	localNet := new(mocks.LocalNet)
+	localNetListener := new(mocks.LocalNetListener)
+	localNetListener.On("Close").Return(nil)
+	localNet.On("Listen", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(localNetListener, nil)
+	networker := network.NewNetwork(nil, localNet)
+
+	list := networker.AllUnavailablePortsFromList(&network.PortList{3000, 4000, 5000})
+	assert.Empty(t, list)
+}
+
+func TestAllUnavailablePortsFromListWithSomePortsUnavailable(t *testing.T) {
+	localNet := new(mocks.LocalNet)
+	localNetListener := new(mocks.LocalNetListener)
+	localNetListener.On("Close").Return(nil)
+	localNet.On("Listen", mock.AnythingOfType("string"), ":3000").Return(nil, errors.New("Listen Failed"))
+	localNet.On("Listen", mock.AnythingOfType("string"), ":4000").Return(nil, errors.New("Listen Failed"))
+	localNet.On("Listen", mock.AnythingOfType("string"), mock.AnythingOfType("string")).Return(localNetListener, nil)
+	networker := network.NewNetwork(nil, localNet)
+
+	list := networker.AllUnavailablePortsFromList(&network.PortList{3000, 4000, 5000})
+	assert.Equal(t, network.PortList{3000, 4000}, list)
 }
 
 func TestPortIsAvailableWithoutError(t *testing.T) {
