@@ -36,6 +36,15 @@ $ network check -portList 80,1024,3000,8000   # Return all of the unavailable po
 $ network check -ip                           # Return local machine's internal and external IP addresses
 ```
 
+More command details use `$ network help`
+
 ---
 
-More command details use `$ network help`
+### Development:
+
+Run the tests with:
+
+``` Bash
+$ go test
+```
+
