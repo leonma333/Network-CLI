@@ -17,13 +17,13 @@ const (
 
 // Network interface to deal with http server and IP
 type Network interface {
-	StartHttpServer(port int, useFile bool) error
+	StartHttpServer(port uint16, useFile bool) error
 	AllUnavailablePorts() PortList
 	AllUnavailablePortsFromList(pl *PortList) PortList
-	PortIsAvailable(port int) (status bool, err error)
+	PortIsAvailable(port uint16) (status bool, err error)
 	InternalIP() (net.IP, error)
 	ExternalIP() (net.IP, error)
-	Forwarding(target string, port int) error
+	Forwarding(target string, port uint16) error
 }
 
 // NetworkHelper implements Network interface
@@ -52,7 +52,7 @@ func NewNetwork(httpClient HttpServer, netClient LocalNet) Network {
 /*
  * Start a local http server with the port number provided
  */
-func (n *networkHandler) StartHttpServer(port int, useFile bool) error {
+func (n *networkHandler) StartHttpServer(port uint16, useFile bool) error {
 	if useFile {
 		n.httpClient.Handle("/", http.FileServer(http.Dir("./")))
 	} else {
@@ -75,8 +75,8 @@ func (n *networkHandler) StartHttpServer(port int, useFile bool) error {
 func (n *networkHandler) AllUnavailablePorts() PortList {
 	var unavailablePorts PortList
 	for i := 0; i <= MAX_PORT; i++ {
-		if status, _ := n.PortIsAvailable(i); !status {
-			unavailablePorts = append(unavailablePorts, i)
+		if status, _ := n.PortIsAvailable(uint16(i)); !status {
+			unavailablePorts = append(unavailablePorts, uint16(i))
 		}
 	}
 	return unavailablePorts
@@ -98,8 +98,8 @@ func (n *networkHandler) AllUnavailablePortsFromList(pl *PortList) PortList {
 /*
  * Check the given port number is availble to be used for the machine
  */
-func (n *networkHandler) PortIsAvailable(port int) (status bool, err error) {
-	host := ":" + strconv.Itoa(port)
+func (n *networkHandler) PortIsAvailable(port uint16) (status bool, err error) {
+	host := ":" + strconv.Itoa(int(port))
 	server, err := n.netClient.Listen("tcp", host)
 	if err != nil {
 		return false, err
@@ -158,7 +158,7 @@ func (n *networkHandler) ExternalIP() (net.IP, error) {
 /*
  * Port forwarding
  */
-func (n *networkHandler) Forwarding(target string, port int) error {
+func (n *networkHandler) Forwarding(target string, port uint16) error {
 	// Declare listener to the origin port
 	listener, err := n.netClient.Listen("tcp", portStringify(port))
 	if err != nil {
@@ -208,6 +208,6 @@ func (n *networkHandler) forward(conn LocalNetConn, target string, c chan bool) 
 /*
  * Make port number to string format ":xxx"
  */
-func portStringify(port int) string {
-	return fmt.Sprintf(":%v", port)
+func portStringify(port uint16) string {
+	return fmt.Sprintf(":%d", port)
 }

@@ -52,7 +52,7 @@ func main() {
 
 	// Check which subcommand should be ran
 	if serverCommand.Parsed() {
-		err := networker.StartHttpServer(*serverPortPtr, *serverFilePtr)
+		err := networker.StartHttpServer(uint16(*serverPortPtr), *serverFilePtr)
 		if err != nil {
 			errorRoutine(err.Error())
 		}
@@ -60,7 +60,7 @@ func main() {
 		if *forwardTargetPtr == "" || *forwardPortPtr < 0 {
 			exitRoutine("Both target and port number options are required (see help)")
 		}
-		err := networker.Forwarding(*forwardTargetPtr, *forwardPortPtr)
+		err := networker.Forwarding(*forwardTargetPtr, uint16(*forwardPortPtr))
 		if err != nil {
 			errorRoutine(err.Error())
 		}
